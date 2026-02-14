@@ -70,6 +70,8 @@ import org.h2.tools.SimpleResultSet;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /**
@@ -519,54 +521,27 @@ class CSVPrinterTest {
         assertFalse(CSVFormat.DEFAULT.equals(""));
     }
 
-    @Test
-    void testEscapeBackslash1() throws IOException {
-        final StringWriter sw = new StringWriter();
-        try (CSVPrinter printer = new CSVPrinter(sw, CSVFormat.DEFAULT.withQuote(QUOTE_CH))) {
-            assertInitialState(printer);
-            printer.print("\\");
-        }
-        assertEquals("\\", sw.toString());
+    /**
+     * Provides the arguments (input and expected result) for the parameterized test below.
+     */
+    private static Stream<Arguments> escapeBackslashData() {
+        return Stream.of(
+            Arguments.arguments("\\", "\\"),
+            Arguments.arguments("\\\r", "'\\\r'"),
+            Arguments.arguments("X\\\r", "'X\\\r'"),
+            Arguments.arguments("\\\\", "\\\\") 
+        );
     }
 
-    @Test
-    void testEscapeBackslash2() throws IOException {
+    @ParameterizedTest(name = "Test Escape Backslash: input=[{0}], expected=[{1}]")
+    @MethodSource("escapeBackslashData")
+    void testEscapeBackslash(final String input, final String expected) throws IOException {
         final StringWriter sw = new StringWriter();
         try (CSVPrinter printer = new CSVPrinter(sw, CSVFormat.DEFAULT.withQuote(QUOTE_CH))) {
             assertInitialState(printer);
-            printer.print("\\\r");
+            printer.print(input);
         }
-        assertEquals("'\\\r'", sw.toString());
-    }
-
-    @Test
-    void testEscapeBackslash3() throws IOException {
-        final StringWriter sw = new StringWriter();
-        try (CSVPrinter printer = new CSVPrinter(sw, CSVFormat.DEFAULT.withQuote(QUOTE_CH))) {
-            assertInitialState(printer);
-            printer.print("X\\\r");
-        }
-        assertEquals("'X\\\r'", sw.toString());
-    }
-
-    @Test
-    void testEscapeBackslash4() throws IOException {
-        final StringWriter sw = new StringWriter();
-        try (CSVPrinter printer = new CSVPrinter(sw, CSVFormat.DEFAULT.withQuote(QUOTE_CH))) {
-            assertInitialState(printer);
-            printer.print("\\\\");
-        }
-        assertEquals("\\\\", sw.toString());
-    }
-
-    @Test
-    void testEscapeBackslash5() throws IOException {
-        final StringWriter sw = new StringWriter();
-        try (CSVPrinter printer = new CSVPrinter(sw, CSVFormat.DEFAULT.withQuote(QUOTE_CH))) {
-            assertInitialState(printer);
-            printer.print("\\\\");
-        }
-        assertEquals("\\\\", sw.toString());
+        assertEquals(expected, sw.toString());
     }
 
     @Test

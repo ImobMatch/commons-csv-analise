@@ -702,11 +702,12 @@ public final class CSVParser implements Iterable<CSVRecord>, Closeable {
      * @return a copy of the header map.
      */
     public Map<String, Integer> getHeaderMap() {
-        if (headers.headerMap == null) {
-            return null;
-        }
         final Map<String, Integer> map = createEmptyHeaderMap();
-        map.putAll(headers.headerMap);
+        
+        if (headers.headerMap != null) {
+            map.putAll(headers.headerMap);
+        }
+        
         return map;
     }
 

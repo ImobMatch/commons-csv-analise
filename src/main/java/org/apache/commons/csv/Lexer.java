@@ -223,9 +223,7 @@ final class Lexer implements Closeable {
 
     /**
      * Returns the next token.
-     * <p>
      * A token corresponds to a term, a record change or an end-of-file indicator.
-     * </p>
      *
      * @param token an existing Token object to reuse. The caller is responsible for initializing the Token.
      * @return the next token found.
@@ -233,77 +231,77 @@ final class Lexer implements Closeable {
      * @throws CSVException Thrown on invalid input.
      */
     Token nextToken(final Token token) throws IOException {
-        // Get the last read char (required for empty line detection)
         int lastChar = reader.getLastChar();
-        // read the next char and set eol
         int c = reader.read();
-        // Note: The following call will swallow LF if c == CR. But we don't need to know if the last char was CR or LF - they are equivalent here.
         boolean eol = readEndOfLine(c);
-        // empty line detection: eol AND (last char was EOL or beginning)
+
+        // empty line detection
         if (ignoreEmptyLines) {
             while (eol && isStartOfLine(lastChar)) {
-                // Go on char ahead ...
                 lastChar = c;
                 c = reader.read();
                 eol = readEndOfLine(c);
-                // reached the end of the file without any content (empty line at the end)
                 if (isEndOfFile(c)) {
-                    token.type = Token.Type.EOF;
-                    // don't set token.isReady here because no content
-                    return token;
+                    return createEofToken(token);
                 }
             }
         }
+
         // Did we reach EOF during the last iteration already? EOF
-        if (isEndOfFile(lastChar) || !isLastTokenDelimiter && isEndOfFile(c)) {
-            token.type = Token.Type.EOF;
-            // don't set token.isReady here because no content
-            return token;
+        if (isEndOfFile(lastChar) || (!isLastTokenDelimiter && isEndOfFile(c))) {
+            return createEofToken(token);
         }
+
         if (isStartOfLine(lastChar) && isCommentStart(c)) {
-            final String line = reader.readLine();
-            if (line == null) {
-                token.type = Token.Type.EOF;
-                // don't set token.isReady here because no content
-                return token;
-            }
-            final String comment = line.trim();
-            token.content.append(comment);
-            token.type = Token.Type.COMMENT;
-            return token;
+            return parseComment(token);
         }
-        // Important: make sure a new char gets consumed in each iteration
+
+        return processTokenContent(token, c, eol);
+    }
+
+    private Token createEofToken(final Token token) {
+        token.type = Token.Type.EOF;
+        // don't set token.isReady here because no content
+        return token;
+    }
+
+    private Token parseComment(final Token token) throws IOException {
+        final String line = reader.readLine();
+        if (line == null) {
+            return createEofToken(token);
+        }
+        final String comment = line.trim();
+        token.content.append(comment);
+        token.type = Token.Type.COMMENT;
+        return token;
+    }
+
+    private Token processTokenContent(final Token token, int c, boolean eol) throws IOException {
         while (token.type == Token.Type.INVALID) {
-            // ignore whitespaces at beginning of a token
             if (ignoreSurroundingSpaces) {
                 while (Character.isWhitespace((char) c) && !isDelimiter(c) && !eol) {
                     c = reader.read();
                     eol = readEndOfLine(c);
                 }
             }
-            // ok, start of token reached: encapsulated, or token
-            if (isDelimiter(c)) {
-                // empty token return TOKEN("")
-                token.type = Token.Type.TOKEN;
-            } else if (eol) {
-                // empty token return EORECORD("")
-                // noop: token.content.append("");
-                token.type = Token.Type.EORECORD;
-            } else if (isQuoteChar(c)) {
-                // consume encapsulated token
-                parseEncapsulatedToken(token);
-            } else if (isEndOfFile(c)) {
-                // end of file return EOF()
-                // noop: token.content.append("");
-                token.type = Token.Type.EOF;
-                token.isReady = true; // there is data at EOF
-            } else {
-                // next token must be a simple token
-                // add removed blanks when not ignoring whitespace chars...
-                parseSimpleToken(token, c);
-            }
+            evaluateToken(token, c, eol);
         }
         return token;
+    }
+
+    private void evaluateToken(final Token token, int c, boolean eol) throws IOException {
+        if (isDelimiter(c)) {
+            token.type = Token.Type.TOKEN;
+        } else if (eol) {
+            token.type = Token.Type.EORECORD;
+        } else if (isQuoteChar(c)) {
+            parseEncapsulatedToken(token);
+        } else if (isEndOfFile(c)) {
+            token.type = Token.Type.EOF;
+            token.isReady = true; // there is data at EOF
+        } else {
+            parseSimpleToken(token, c);
+        }
     }
 
     private int nullToDisabled(final Character c) {

@@ -2407,21 +2407,13 @@ public final class CSVFormat implements Serializable {
      * The original object is needed so can check for Number
      */
     private void printWithQuotes(final Object object, final CharSequence charSeq, final Appendable out, final boolean newRecord) throws IOException {
-        boolean quote = false;
-        int start = 0;
-        int pos = 0;
-        final int len = charSeq.length();
-        final char[] delim = getDelimiterCharArray();
-        final int delimLength = delim.length;
-        final char quoteChar = getQuoteCharacter().charValue(); // Explicit (un)boxing is intentional
-        // If escape char not specified, default to the quote char
-        // This avoids having to keep checking whether there is an escape character
-        // at the cost of checking against quote twice
-        final char escapeChar = isEscapeCharacterSet() ? getEscapeChar() : quoteChar;
         QuoteMode quoteModePolicy = getQuoteMode();
         if (quoteModePolicy == null) {
             quoteModePolicy = QuoteMode.MINIMAL;
         }
+
+        boolean quote = false;
+
         switch (quoteModePolicy) {
         case ALL:
         case ALL_NON_NULL:
@@ -2431,75 +2423,79 @@ public final class CSVFormat implements Serializable {
             quote = !(object instanceof Number);
             break;
         case NONE:
-            // Use the existing escaping code
             printWithEscapes(charSeq, out);
             return;
         case MINIMAL:
-            if (len <= 0) {
-                // Always quote an empty token that is the first
-                // on the line, as it may be the only thing on the
-                // line. If it were not quoted in that case,
-                // an empty line has no tokens.
-                if (newRecord) {
-                    quote = true;
-                }
-            } else {
-                char c = charSeq.charAt(pos);
-                if (c <= Constants.COMMENT) {
-                    // Some other chars at the start of a value caused the parser to fail, so for now
-                    // encapsulate if we start in anything less than '#'. We are being conservative
-                    // by including the default comment char too.
-                    quote = true;
-                } else {
-                    while (pos < len) {
-                        c = charSeq.charAt(pos);
-                        if (c == Constants.LF || c == Constants.CR || c == quoteChar || c == escapeChar || isDelimiter(c, charSeq, pos, delim, delimLength)) {
-                            quote = true;
-                            break;
-                        }
-                        pos++;
-                    }
-
-                    if (!quote) {
-                        pos = len - 1;
-                        c = charSeq.charAt(pos);
-                        // Some other chars at the end caused the parser to fail, so for now
-                        // encapsulate if we end in anything less than ' '
-                        if (isTrimChar(c)) {
-                            quote = true;
-                        }
-                    }
-                }
-            }
-            if (!quote) {
-                // No encapsulation needed - write out the original value
-                out.append(charSeq, start, len);
-                return;
-            }
+            quote = requiresMinimalQuoting(charSeq, newRecord);
             break;
         default:
             throw new IllegalStateException("Unexpected Quote value: " + quoteModePolicy);
         }
+
         if (!quote) {
             // No encapsulation needed - write out the original value
-            out.append(charSeq, start, len);
+            out.append(charSeq, 0, charSeq.length());
             return;
         }
-        // We hit something that needed encapsulation
+
+        printEncapsulated(charSeq, out);
+    }
+
+    /**
+     * Evaluates whether the string requires quotes under the MINIMAL policy.
+     */
+    private boolean requiresMinimalQuoting(final CharSequence charSeq, final boolean newRecord) {
+        final int len = charSeq.length();
+        if (len <= 0) {
+            return newRecord; // Always quote an empty token that is the first on the line
+        }
+
+        char c = charSeq.charAt(0);
+        if (c <= Constants.COMMENT) {
+            return true; // encapsulate if we start in anything less than '#'
+        }
+
+        final char[] delim = getDelimiterCharArray();
+        final int delimLength = delim.length;
+        final char quoteChar = getQuoteCharacter().charValue();
+        final char escapeChar = isEscapeCharacterSet() ? getEscapeChar() : quoteChar;
+
+        for (int pos = 0; pos < len; pos++) {
+            c = charSeq.charAt(pos);
+            if (c == Constants.LF || c == Constants.CR || c == quoteChar || c == escapeChar || isDelimiter(c, charSeq, pos, delim, delimLength)) {
+                return true;
+            }
+        }
+
+        // Check last char
+        c = charSeq.charAt(len - 1);
+        if (isTrimChar(c)) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Outputs the string, applying the necessary quote and escape characters. 
+     */
+    private void printEncapsulated(final CharSequence charSeq, final Appendable out) throws IOException {
+        final int len = charSeq.length();
+        final char quoteChar = getQuoteCharacter().charValue();
+        final char escapeChar = isEscapeCharacterSet() ? getEscapeChar() : quoteChar;
+        int start = 0;
+        int pos = 0;
+
         out.append(quoteChar);
-        // Pick up where we left off: pos should be positioned on the first character that caused
-        // the need for encapsulation.
         while (pos < len) {
             final char c = charSeq.charAt(pos);
             if (c == quoteChar || c == escapeChar) {
-                // write out the chunk up until this point
                 out.append(charSeq, start, pos);
-                out.append(escapeChar); // now output the escape
-                start = pos; // and restart with the matched char
+                out.append(escapeChar);
+                start = pos;
             }
             pos++;
         }
-        // Write the last segment
         out.append(charSeq, start, pos);
         out.append(quoteChar);
     }

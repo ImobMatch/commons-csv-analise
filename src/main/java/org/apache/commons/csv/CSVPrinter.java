@@ -237,18 +237,20 @@ public final class CSVPrinter implements Flushable, Closeable {
             }
             appendable.append(format.getCommentMarker().charValue()); // Explicit (un)boxing is intentional
             appendable.append(SP);
+            
             for (int i = 0; i < comment.length(); i++) {
                 final char c = comment.charAt(i);
+                
                 switch (c) {
                 case CR:
-                    if (i + 1 < comment.length() && comment.charAt(i + 1) == LF) {
-                        i++;
-                    }
-                    // falls-through: break intentionally excluded.
+                    printCommentLineBreak();
+                    break;
                 case LF:
-                    println();
-                    appendable.append(format.getCommentMarker().charValue()); // Explicit (un)boxing is intentional
-                    appendable.append(SP);
+                    // Se o anterior for CR, já processamos a quebra de linha para esta sequência CRLF
+                    if (i > 0 && comment.charAt(i - 1) == CR) {
+                        continue;
+                    }
+                    printCommentLineBreak();
                     break;
                 default:
                     appendable.append(c);
@@ -259,6 +261,13 @@ public final class CSVPrinter implements Flushable, Closeable {
         } finally {
             lock.unlock();
         }
+    }
+
+    // Auxiliary function.
+    private void printCommentLineBreak() throws IOException {
+        println();
+        appendable.append(format.getCommentMarker().charValue());
+        appendable.append(SP);
     }
 
     /**
