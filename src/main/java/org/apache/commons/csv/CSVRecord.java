@@ -42,103 +42,103 @@ import java.util.stream.Stream;
  */
 public final class CSVRecord implements Serializable, Iterable<String> {
 
-    private static final long serialVersionUID = 1L;
+  private static final long serialVersionUID = 1L;
 
-    /**
-     * The start position of this record as a character position in the source stream. This may or may not correspond to the byte position depending on the
-     * character set.
-     */
-    private final long characterPosition;
+  /**
+  * The start position of this record as a character position in the source stream. This may or
+  * may not correspond to the byte position depending on the character set.
+  */
+  private final long characterPosition;
 
-    /**
-     * The starting position of this record in the source stream, measured in bytes.
-     */
-    private final long bytePosition;
+  /**
+   * The starting position of this record in the source stream, measured in bytes.
+   */
+  private final long bytePosition;
 
-    /** The accumulated comments (if any). */
-    private final String comment;
+  /** The accumulated comments (if any). */
+  private final String comment;
 
-    /** The record number. */
-    private final long recordNumber;
+  /** The record number. */
+  private final long recordNumber;
 
-    /** The values of the record. */
-    private final String[] values;
+  /** The values of the record. */
+  private final String[] values;
 
-    /** The parser that originates this record. This is not serialized. */
-    private final transient CSVParser parser;
+  /** The parser that originates this record. This is not serialized. */
+  private final transient CSVParser parser;
 
-    CSVRecord(final CSVParser parser, final String[] values,  final String comment, final long recordNumber,
+  CSVRecord(final CSVParser parser, final String[] values,  final String comment, final long recordNumber,
             final long characterPosition, final long bytePosition) {
-        this.recordNumber = recordNumber;
-        this.values = values != null ? values : Constants.EMPTY_STRING_ARRAY;
-        this.parser = parser;
-        this.comment = comment;
-        this.characterPosition = characterPosition;
-        this.bytePosition = bytePosition;
-    }
+    this.recordNumber = recordNumber;
+    this.values = values != null ? values : Constants.EMPTY_STRING_ARRAY;
+    this.parser = parser;
+    this.comment = comment;
+    this.characterPosition = characterPosition;
+    this.bytePosition = bytePosition;
+  }
 
-    /**
-     * Returns a value by {@link Enum}.
-     *
-     * @param e
-     *            an enum
-     * @return the String at the given enum String
-     */
-    public String get(final Enum<?> e) {
-        return get(e == null ? null : e.name());
-    }
+  /**
+   * Returns a value by {@link Enum}.
+   *
+   * @param e
+   *            an enum
+   * @return the String at the given enum String
+   */
+  public String get(final Enum<?> e) {
+    return get(e == null ? null : e.name());
+  }
 
-    /**
-     * Returns a value by index.
-     *
-     * @param i
-     *            a column index (0-based)
-     * @return the String at the given index
-     */
-    public String get(final int i) {
-        return values[i];
-    }
+  /**
+   * Returns a value by index.
+   *
+   * @param i
+   *            a column index (0-based)
+   * @return the String at the given index
+   */
+  public String get(final int i) {
+    return values[i];
+  }
 
-    /**
-     * Returns a value by name. If multiple instances of the header name exists, only the last occurrence is returned.
-     *
-     * <p>
-     * Note: This requires a field mapping obtained from the original parser.
-     * A check using {@link #isMapped(String)} should be used to determine if a
-     * mapping exists from the provided {@code name} to a field index. In this case an
-     * exception will only be thrown if the record does not contain a field corresponding
-     * to the mapping, that is the record length is not consistent with the mapping size.
-     * </p>
-     *
-     * @param name
-     *            the name of the column to be retrieved.
-     * @return the column value, maybe null depending on {@link CSVFormat#getNullString()}.
-     * @throws IllegalStateException
-     *             if no header mapping was provided.
-     * @throws IllegalArgumentException
-     *             if {@code name} is not mapped or if the record is inconsistent.
-     * @see #isMapped(String)
-     * @see #isConsistent()
-     * @see #getParser()
-     * @see CSVFormat.Builder#setNullString(String)
-     */
-    public String get(final String name) {
-        final Map<String, Integer> headerMap = getHeaderMapRaw();
-        if (headerMap == null) {
-            throw new IllegalStateException("No header mapping was specified, the record values can't be accessed by name");
-        }
-        final Integer index = headerMap.get(name);
-        if (index == null) {
-            throw new IllegalArgumentException(String.format("Mapping for %s not found, expected one of %s", name, headerMap.keySet()));
-        }
-        try {
-            return values[index.intValue()]; // Explicit (un)boxing is intentional
-        } catch (final ArrayIndexOutOfBoundsException e) {
-            throw new IllegalArgumentException(
-                    String.format("Index for header '%s' is %d but CSVRecord only has %d values!", name, index, Integer.valueOf(values.length))); // Explicit
-                                                                                                                                                  // (un)boxing
-                                                                                                                                                  // is
-                                                                                                                                                  // intentional
+  /**
+   * Returns a value by name. If multiple instances of the header name exists,
+   * only the last occurrence is returned.
+   *
+   * <p>
+   * Note: This requires a field mapping obtained from the original parser.
+   * A check using {@link #isMapped(String)} should be used to determine if a
+   * mapping exists from the provided {@code name} to a field index. In this case an
+   * exception will only be thrown if the record does not contain a field corresponding
+   * to the mapping, that is the record length is not consistent with the mapping size.
+   * </p>
+   *
+   * @param name
+   *            the name of the column to be retrieved.
+   * @return the column value, maybe null depending on {@link CSVFormat#getNullString()}.
+   * @throws IllegalStateException
+   *             if no header mapping was provided.
+   * @throws IllegalArgumentException
+   *             if {@code name} is not mapped or if the record is inconsistent.
+   * @see #isMapped(String)
+   * @see #isConsistent()
+   * @see #getParser()
+   * @see CSVFormat.Builder#setNullString(String)
+   */
+  public String get(final String name) {
+    final Map<String, Integer> headerMap = getHeaderMapRaw();
+    if (headerMap == null) {
+      throw new IllegalStateException(
+          "No header mapping was specified, the record values can't be accessed by name");
+    }
+    final Integer index = headerMap.get(name);
+    if (index == null) {
+      throw new IllegalArgumentException(String.format("Mapping for %s not found, expected one of %s", name, headerMap.keySet()));
+    }
+    try {
+      return values[index.intValue()]; // Explicit (un)boxing is intentional
+    } catch (final ArrayIndexOutOfBoundsException e) {
+    throw new IllegalArgumentException(
+      // Explicit (un)boxing is intentional
+      String.format("Index for header '%s' is %d but CSVRecord only has %d values!", name, index, Integer.valueOf(values.length))); 
         }
     }
 
